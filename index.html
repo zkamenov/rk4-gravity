@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>
+			Orbital Motion
+		</title>
+		<style>
+			#c1 {
+				border: 1px solid #FF0000;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas id="c1" width="1280px" height="720px">
+			simulation not supported on browser
+		</canvas> <br>
+		<input type="checkbox" id="rm">Remove</input> <input type="checkbox" id="cln">Clone</input> <br>
+		<button onclick="reset();"> Reset simulation </button>
+		<h1>Preferences</h1>
+		Simulation speed: <input type="text" id="spd" value="1"> </input> <br>
+		Simulation quality: <input type="text" id="qlt" value="100"> </input> <br>
+		Background color: <input type="color" id="bg" value="#000000"> </input> <br>
+		Gravity constant: <input type="text" id="gc" value="100"> </input>
+		<br><br>
+		<h1>New Objects</h1><br>
+		X velocity: <input type="text" id="vx" value="0"> </input> <br>
+		Y velocity: <input type="text" id="vy" value="0"> </input> <br>
+		Mass: <input type="text" id="mass" value="1"> </input> <br>
+		Color: <input type="color" id="color" value="#AAAAAA"> </input> <br>
+		Radius: <input type="text" id="radius" value="20"> </input>
+		<br><br>
+		<h1>Controls</h1>
+		Q: Zoom in <br>
+		W: Camera up <br>
+		E: Zoom out <br>
+		A: Camera left <br>
+		S: Camera down <br>
+		D: Camera right <br>
+		P: Pause/resume <br>
+		Mouse drag: Drag object (objects can be "thrown" with mouse cursor) <br>
+		Mouse click: Create/destroy object <br><br>
+		<h1>Bibliography</h1>
+		Voesenec, C. J. (June 14, 2008) . Implementing a Fourth Order Runge-Kutta Method for Orbit Simulation. Rochester Institute of Technology. Retrieved from http://spiff.rit.edu/richmond/nbody/OrbitRungeKutta4.pdf. <br><br>
+		Luther, H. A. An Explicit Sixth-Order Runge-Kutta Formula. AMS. Retrieved from https://www.ams.org/journals/mcom/1968-22-102/S0025-5718-68-99876-1/S0025-5718-68-99876-1.pdf.
+		
+		<script>
+			var canvas = document.getElementById("c1");
+			var g = canvas.getContext("2d");
+			var mouseX = 0;
+			var mouseY = 0;
+			var mouseDown = false;
+			var gravConst = 100;
+			var camX = 0;
+			var camY = 0;
+			var camZ = 1;
+			var target = -1;
+			
+			class Object {
+				constructor(x,y,vx,vy,mass,color,radius) {
+					this.x = x;
+					this.y = y;
+					this.vx = vx;
+					this.vy = vy;
+					this.mass = mass;
+					this.color = color;
+					this.dx = 0;
+					this.dy = 0;
+					this.radius = radius;
+				}
+				
+				rk(objects,h) {
+					
+					let k1v = [0,0];
+
+					objects.forEach(t => {
+						if(t.x != this.x && t.y != this.y) {
+							t.x -= this.x; t.y -= this.y;
+							k1v[0] += t.x*gravConst*t.mass/Math.pow(t.x*t.x+t.y*t.y,1.5);
+                                                        k1v[1] += t.y*gravConst*t.mass/Math.pow(t.x*t.x+t.y*t.y,1.5);
+							t.x += this.x; t.y += this.y;
+						}
+					});
+					let k1r = [this.vx,this.vy];
+					let k2v = [0,0];
+					objects.forEach(t => {
+						if(t.x != this.x && t.y != this.y) {
+							t.x -= this.x; t.y -= this.y;
+                                                        k2v[0] += (t.x+k1r[0]*h/2)*gravConst*t.mass/Math.pow((t.x+k1r[0]*h/2)*(t.x+k1r[0]*h/2)+(t.y+k1r[1]*h/2)*(t.y+k1r[1]*h/2),1.5);
+                                                        k2v[1] += (t.y+k1r[1]*h/2)*gravConst*t.mass/Math.pow((t.x+k1r[0]*h/2)*(t.x+k1r[0]*h/2)+(t.y+k1r[1]*h/2)*(t.y+k1r[1]*h/2),1.5);
+							t.x += this.x; t.y += this.y;
+						}
+					});
+					
+					let k2r = [this.vx*k2v[0]*h/2,this.vy*k2v[1]*h/2];
+					let k3v = [0,0];
+					
+                                        objects.forEach(t => {
+                                                if(t.x != this.x && t.y != this.y) {
+							t.x -= this.x; t.y -= this.y;
+                                                        k3v[0] += (t.x+k2r[0]*h/2)*gravConst*t.mass/Math.pow((t.x+k2r[0]*h/2)*(t.x+k2r[0]*h/2)+(t.y+k2r[1]*h/2)*(t.y+k2r[1]*h/2),1.5);
+                                                        k3v[1] += (t.y+k2r[1]*h/2)*gravConst*t.mass/Math.pow((t.x+k2r[0]*h/2)*(t.x+k2r[0]*h/2)+(t.y+k2r[1]*h/2)*(t.y+k2r[1]*h/2),1.5);
+                                                	t.x += this.x; t.y += this.y;
+						}
+                                        });
+					
+                                        let k3r = [this.vx*k3v[0]*h/2,this.vy*k3v[1]*h/2];
+					let k4v = [0,0];
+					
+					objects.forEach(t => {
+                                                if(t.x != this.x && t.y != this.y) {
+							t.x -= this.x; t.y -= this.y;
+                                                        k4v[0] += (t.x+k3r[0]*h)*gravConst*t.mass/Math.pow((t.x+k3r[0]*h)*(t.x+k3r[0]*h)+(t.y+k3r[1]*h)*(t.y+k3r[1]*h),1.5);
+                                                        k4v[1] += (t.y+k3r[1]*h)*gravConst*t.mass/Math.pow((t.x+k3r[0]*h)*(t.x+k3r[0]*h)+(t.y+k3r[1]*h)*(t.y+k3r[1]*h),1.5);
+							t.x += this.x; t.y += this.y;
+                                                }
+                                        });
+					
+                                        let k4r = [this.vx*k4v[0]*h,this.vy*k4v[1]*h];
+					
+					this.dx = (h/6)*(k1r[0]+2*k2r[0]+2*k3r[0]+k4r[0]);
+					this.dy = (h/6)*(k1r[1]+2*k2r[1]+2*k3r[1]+k4r[1]);
+					
+					this.vx += h/6*(k1v[0]+2*k2v[0]+2*k3v[0]+k4v[0]);
+					this.vy += h/6*(k1v[1]+2*k2v[1]+2*k3v[1]+k4v[1]);
+				}
+				changepos() {
+					this.x += this.dx;
+					this.y += this.dy;
+				}
+				
+				draw(g,camX,camY,camZ) {
+					g.beginPath();
+					g.fillStyle = this.color;
+					g.arc(Math.floor((this.x-camX)/camZ+1280/2),Math.floor(-(this.y-camY)/camZ+720/2),Math.ceil(this.radius/camZ),0,3.1416*2);
+					g.fill();
+					
+				}
+			}
+			
+			var objects = [new Object(0,0,0.14,-0.14,10,"#AA0000",50),new Object(50,50,-7,7,0.2,"#00BB00",10)];
+			
+			g.rect(10.1,10,10,10);
+			g.fill();
+			
+			function sleep(ms) {
+				return new Promise(resolver => setTimeout(resolver,ms));
+			}
+			
+			function mouseMove(event) {
+				var mx = event.clientX - event.target.getBoundingClientRect().x;
+				var my = event.clientY - event.target.getBoundingClientRect().y;
+				mouseX = mx;
+				mouseY = my;
+				
+			}
+			function click(event) {
+				let i = 0;
+				mouseDown = !mouseDown;
+				console.log("mouse down: " + ((mouseDown) ? "true" : "false"));
+				if(mouseDown) {
+					objects.forEach(t => {
+						let h = ((t.x-camX)/camZ+1280/2)-mouseX;
+						let j = (-(t.y-camY)/camZ+720/2)-mouseY;
+						if (Math.floor(Math.sqrt(h*h+j*j)) <= Math.ceil(t.radius/camZ)) {
+							if (document.getElementById("rm").checked) {
+								objects.splice(i,1);
+								console.log("object removed");
+								target = -2;
+							} else if (document.getElementById("cln").checked) {
+								target = objects.length;
+								objects.push(new Object(t.x,t.y,t.vx,t.vy,t.mass,t.color,t.radius));
+							} else
+								target = i;
+						}	
+						i += 1; 
+					});
+					if (target == -1 && !document.getElementById("rm").checked) {
+						objects.push(new Object(camX+(mouseX-1280/2)*camZ,camY+(720/2-mouseY)*camZ,
+								parseFloat(document.getElementById("vx").value),parseFloat(document.getElementById("vy").value),
+								parseFloat(document.getElementById("mass").value),document.getElementById("color").value,
+								parseFloat(document.getElementById("radius").value)));
+						console.log(document.getElementById("color").value);
+					}
+				} else {
+					target = -1;
+				}
+				console.log("target: " + target);
+			}
+			canvas.addEventListener("mousemove",mouseMove);
+			canvas.addEventListener("mousedown",click);
+			canvas.addEventListener("mouseup",click);
+			var yc = 0;
+			var xc = 0;
+			var zc = 1;
+			function keyUp(e) {
+				console.log(e.keyCode);
+                                switch(e.keyCode) {
+                                        case 81: // q
+                                                zc = 1;
+                                                break;
+                                        case 69: // e
+                                                zc = 1;
+                                                break;
+                                        case 87: // w
+                                                yc = 0;
+                                                break;
+                                        case 65: // a
+                                                xc = 0;
+                                                break;
+                                        case 83: // s
+                                                yc = 0;
+                                                break;
+                                        case 68: // d
+                                                xc = 0;
+                                                break;
+                                }
+			}
+			function keyDown(e) {
+				console.log(e.keyCode);
+				switch(e.keyCode) {
+				        case 81: // q
+                                                zc = 0.98;
+                                                break;
+                                        case 69: // e
+                                                zc = 1/0.98;
+						break;
+					case 87: // w
+						yc = 1;
+						break;
+					case 65: // a
+						xc = -1;
+						break;
+					case 83: // s
+						yc = -1;
+						break;
+					case 68: // d
+						xc = 1;
+						break;
+					case 80: // p
+						document.getElementById("spd").value = (document.getElementById("spd").value == "0") ? "1" : "0";
+						break;
+				}
+
+			}
+			document.onkeydown = keyDown;
+			document.onkeyup = keyUp;
+			
+			async function loop() {
+				while (true) {
+					gravConst = parseFloat(document.getElementById("gc").value);
+					let qual = parseFloat(document.getElementById("qlt").value);//console.log(qual);
+					let spd = parseFloat(document.getElementById("spd").value);//console.log(spd);
+					let ox = mouseX;
+					let oy = mouseY;
+					await sleep(1000/60);
+					camZ *= zc;
+					camX += xc*camZ*4;
+					camY += yc*camZ*4;
+					for (let i = 0; i < qual; i++) {
+						objects.forEach(l => l.rk(objects,spd/qual));
+						objects.forEach(l => l.changepos());
+					}
+					if (target >= 0) {
+						objects[target].x = (mouseX-1280/2)*camZ+camX;
+						objects[target].y = (-mouseY+720/2)*camZ+camY;
+						if (spd != 0) {
+							objects[target].vx = (mouseX-ox)/spd*camZ+objects[target].vx*3/4;
+							objects[target].vy = (oy-mouseY)/spd*camZ+objects[target].vy*3/4;
+						}
+					}
+					g.fillStyle = document.getElementById("bg").value;
+					g.rect(0,0,1280,720);
+					g.fill();
+					objects.forEach(l => {
+						l.draw(g,camX,camY,camZ);
+					});
+				}
+			}	
+			
+			function reset() {
+				objects = [new Object(0,0,0.14,-0.14,10,"#AA0000",50),new Object(50,50,-7,7,0.2,"#00BB00",10)];
+			}
+			
+			console.log("started");
+			loop();
+			console.log("ended");
+		</script>
+	</body>
+</html>
+
+
